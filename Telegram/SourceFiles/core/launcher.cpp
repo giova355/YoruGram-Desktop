@@ -221,7 +221,7 @@ void ComputeInstallationTag() {
 
 bool MoveLegacyAlphaFolder(const QString &folder, const QString &file) {
 	const auto was = cExeDir() + folder;
-	const auto now = cExeDir() + u"TelegramForcePortable"_q;
+	const auto now = cExeDir() + u"YoruGramForcePortable"_q;
 	if (QDir(was).exists() && !QDir(now).exists()) {
 		const auto oldFile = was + "/tdata/" + file;
 		const auto newFile = was + "/tdata/alpha";
@@ -242,8 +242,8 @@ bool MoveLegacyAlphaFolder(const QString &folder, const QString &file) {
 }
 
 bool MoveLegacyAlphaFolder() {
-	if (!MoveLegacyAlphaFolder(u"TelegramAlpha_data"_q, u"alpha"_q)
-		|| !MoveLegacyAlphaFolder(u"TelegramBeta_data"_q, u"beta"_q)) {
+	if (!MoveLegacyAlphaFolder(u"YoruGramAlpha_data"_q, u"alpha"_q)
+		|| !MoveLegacyAlphaFolder(u"YoruGramBeta_data"_q, u"beta"_q)) {
 		return false;
 	}
 	return true;
@@ -254,7 +254,7 @@ bool CheckPortableVersionFolder() {
 		return false;
 	}
 
-	const auto portable = cExeDir() + u"TelegramForcePortable"_q;
+	const auto portable = cExeDir() + u"YoruGramForcePortable"_q;
 	QFile key(portable + u"/tdata/alpha"_q);
 	if (cAlphaVersion()) {
 		Assert(*AlphaPrivateKey != 0);
@@ -391,7 +391,7 @@ int Launcher::exec() {
 	}
 
 	// Before Logs::start(), which is where the working directory gets
-	// chosen: a translocated bundle never sees its TelegramForcePortable.
+	// chosen: a translocated bundle never sees its YoruGramForcePortable.
 	if (!Platform::CheckAppTranslocation()) {
 		return 0;
 	}
