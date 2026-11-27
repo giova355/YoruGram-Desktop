@@ -4,6 +4,11 @@ on:
   push:
     branches: [yoru/foundation]
   workflow_dispatch:
+    inputs:
+      use_project_api:
+        description: Build with the project's Telegram API credentials
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -11,19 +16,14 @@ permissions:
 jobs:
 
   windows:
-    name: Windows
-    runs-on: windows-latest
+    name: Windows x64
+    runs-on: windows-2025
     timeout-minutes: 360
 
-    strategy:
-      matrix:
-        arch: [x64]
-        generator: [""]
-
     env:
-      UPLOAD_ARTIFACT: "true"
-      ONLY_CACHE: "false"
       PREPARE_PATH: "Telegram/build/prepare/prepare.py"
+      REPO_PATH: TBuild/YoruGram-Desktop
+      USE_PROJECT_API: ${{ inputs.use_project_api == true }}
 
     defaults:
       run:
@@ -31,13 +31,20 @@ jobs:
 
     steps:
       - name: Check API configuration
+        if: inputs.use_project_api == true
         shell: pwsh
         env:
           YORU_API_ID: ${{ secrets.YORU_API_ID }}
           YORU_API_HASH: ${{ secrets.YORU_API_HASH }}
         run: |
-          if ($env:YORU_API_ID -notmatch '^[1-9][0-9]{0,9}$') { throw 'YORU_API_ID must be a positive numeric API ID.' }
-          if ($env:YORU_API_HASH -notmatch '^[a-fA-F0-9]{32}$') { throw 'YORU_API_HASH must be 32 hexadecimal characters.' }
+          if ([string]::IsNullOrEmpty($env:YORU_API_ID)) { throw 'The YORU_API_ID secret is missing.' }
+          if ([string]::IsNullOrEmpty($env:YORU_API_HASH)) { throw 'The YORU_API_HASH secret is missing.' }
+          if ($env:YORU_API_ID -notmatch '^[1-9][0-9]{0,9}\z' -or [long]$env:YORU_API_ID -gt [int]::MaxValue) {
+            throw 'YORU_API_ID must be a positive 32-bit integer.'
+          }
+          if ($env:YORU_API_HASH -notmatch '^[a-fA-F0-9]{32}\z') {
+            throw 'YORU_API_HASH must be 32 hexadecimal characters.'
+          }
 
       - name: Clean up preinstalled software.
         shell: pwsh
@@ -55,31 +62,27 @@ jobs:
 
       - name: Prepare directories.
         run: |
-          mkdir %userprofile%\TBuild\Libraries
-          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
-          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
-          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries${{ matrix.arch == 'x64' && '\win64' || '' }}>>%GITHUB_ENV%
-
-      - name: Get repository name.
-        shell: bash
-        run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+          mkdir "%GITHUB_WORKSPACE%\TBuild\Libraries\win64"
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>"%GITHUB_ENV%"
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>"%GITHUB_ENV%"
 
       - name: Clone.
         uses: actions/checkout@v7
         with:
           submodules: recursive
-          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+          path: ${{ env.REPO_PATH }}
+          persist-credentials: false
 
       - name: First set up.
         shell: bash
         run: |
-          DOCPATH=$TBUILD/$REPO_NAME/docs/building-win.md
-          SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
+          SDK="$(sed -nE 's/.*\*\*([0-9.]+)\*\* SDK version.*/\1/p' "$REPO_PATH/docs/building-win.md")"
+          test -n "$SDK"
           echo "SDK=$SDK" >> $GITHUB_ENV
 
           sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
 
-          echo "$(sha256sum $TBUILD/$REPO_NAME/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
+          sha256sum "$REPO_PATH/$PREPARE_PATH" "$REPO_PATH/Telegram/build/qt_version.py" >> CACHE_KEY.txt
           echo "$SDK" >> CACHE_KEY.txt
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
@@ -87,77 +90,72 @@ jobs:
           git config --global user.email "you@example.com"
           git config --global user.name "Sample"
 
-      - name: Install VS 2026 Build Tools.
-        if: matrix.arch == 'arm64'
-        shell: pwsh
-        run: |
-          $exe = Join-Path $env:RUNNER_TEMP 'vs_buildtools.exe'
-          Invoke-WebRequest -Uri https://aka.ms/vs/18/stable/vs_buildtools.exe -OutFile $exe
-          $p = Start-Process -FilePath $exe -Wait -PassThru -ArgumentList `
-            '--quiet','--wait','--norestart','--nocache', `
-            '--add','Microsoft.VisualStudio.Workload.VCTools', `
-            '--add','Microsoft.VisualStudio.Component.VC.Tools.ARM64', `
-            '--add','Microsoft.VisualStudio.Component.VC.ATL.ARM64'
-          Remove-Item $exe -Force -ErrorAction SilentlyContinue
-          if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit $p.ExitCode }
-
       - uses: Eden-CI/msvc-dev-cmd@master
         name: Native Tools Command Prompt.
         with:
-          arch: ${{ matrix.arch }}
+          arch: x64
           sdk: ${{ env.SDK }}
-          toolset: ${{ case(matrix.arch == 'arm64', '', '14.44') }}
+          toolset: '14.44'
 
       - name: NuGet sources.
         run: |
           nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
           nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
 
-      - name: ThirdParty cache.
-        id: cache-third-party
-        uses: actions/cache@v6
+      - name: Restore prepared dependencies
+        id: dependencies
+        uses: actions/cache/restore@v6
         with:
-          path: ${{ env.TBUILD }}\ThirdParty
-          key: ${{ runner.OS }}-${{ runner.arch }}-third-party-${{ env.CACHE_KEY }}
-          restore-keys: ${{ runner.OS }}-${{ runner.arch }}-third-party-
-
-      - name: Libraries cache.
-        id: cache-libs
-        uses: actions/cache@v6
-        with:
-          path: ${{ env.LibrariesPath }}
-          key: ${{ runner.OS }}-${{ matrix.arch }}-libs-${{ env.CACHE_KEY }}
-          restore-keys: ${{ runner.OS }}-${{ matrix.arch }}-libs-
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.LibrariesPath }}
+          key: ${{ runner.OS }}-x64-debug-dependencies-${{ env.CACHE_KEY }}
 
       - name: Libraries.
+        working-directory: ${{ env.REPO_PATH }}
         run: |
-          set CARGO_INCREMENTAL=0
-          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent
+          set "CARGO_INCREMENTAL=0"
+          call Telegram\build\prepare\win.bat skip-release silent
+
+      - name: Cache prepared dependencies
+        if: steps.dependencies.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.LibrariesPath }}
+          key: ${{ steps.dependencies.outputs.cache-primary-key }}
 
       - name: Compile YoruGram Desktop
         env:
           YORU_API_ID: ${{ secrets.YORU_API_ID }}
           YORU_API_HASH: ${{ secrets.YORU_API_HASH }}
+        working-directory: ${{ env.REPO_PATH }}/Telegram
         run: |
-          cd /d "%TBUILD%\%REPO_NAME%\Telegram"
-          call configure.bat x64 -D TDESKTOP_API_ID=%YORU_API_ID% -D TDESKTOP_API_HASH=%YORU_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+          @echo off
+          if "%USE_PROJECT_API%"=="true" (
+            set "API_OPTIONS=-D TDESKTOP_API_TEST=OFF -D TDESKTOP_API_ID=%YORU_API_ID% -D TDESKTOP_API_HASH=%YORU_API_HASH%"
+          ) else (
+            set "API_OPTIONS=-D TDESKTOP_API_TEST=ON"
+          )
+          call configure.bat x64 %API_OPTIONS% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
           if errorlevel 1 exit /b 1
-          cmake --build ..\out --config Debug --parallel
-          if errorlevel 1 exit /b 1
+          cmake --build ..\out --config Debug --target Telegram --parallel
 
       - name: Package Windows test executable
         shell: pwsh
         run: |
-          $root = Join-Path $env:TBUILD $env:REPO_NAME
+          $root = Join-Path $env:GITHUB_WORKSPACE $env:REPO_PATH
           $exe = Join-Path $root 'out\Debug\YoruGram.exe'
           if (-not (Test-Path $exe)) { throw 'YoruGram.exe missing' }
           New-Item -ItemType Directory -Force artifact | Out-Null
           Copy-Item $exe artifact
-          Copy-Item (Join-Path $root 'LICENSE') artifact
+          Copy-Item (Join-Path $root 'LICENSE'), (Join-Path $root 'LEGAL') artifact
           (Get-FileHash artifact\YoruGram.exe -Algorithm SHA256).Hash | Set-Content artifact\SHA256.txt
       - uses: actions/upload-artifact@v7
+        if: inputs.use_project_api != true || github.event.repository.private
         with:
-          name: YoruGram-Windows-x64-test
+          name: YoruGram-Windows-x64-${{ inputs.use_project_api && 'project-api-test' || 'telegram-test-api' }}
           path: artifact/
           if-no-files-found: error
           retention-days: 7

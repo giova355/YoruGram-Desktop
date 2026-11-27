@@ -3,4 +3,17 @@
 Unofficial Telegram Desktop fork based on 7.4.6. Upstream license and copyright remain intact. Initial Windows x64 changes: app identity, executable name, Windows resource branding and icon, separate default app-data and portable directory. Internal Qt artwork, custom settings and wallpapers still need integration. Test CI disables upstream auto-updates and crash reporting. Never point the explicit -workdir option at an existing Telegram profile. Coexistence and runtime behavior require testing.
 
 ## Build
-Enable Actions on this fork and add your own YORU_API_ID and YORU_API_HASH repository secrets. Do not commit credentials. The Windows workflow on yoru/foundation uses upstream dependency preparation and a single x64 Debug build. Firebase is not needed. See docs/building-win.md for prerequisites. Test artifact should contain YoruGram.exe, LICENSE and SHA256.txt. Production signing, installer and independent updates are not implemented. Other upstream workflows are unchanged; keep unnecessary workflows disabled in fork settings. No build or runtime success is asserted until CI and device tests pass.
+The Windows workflow on `yoru/foundation` uses upstream dependency preparation and builds Debug with MSVC 14.44. Pushes and default manual runs select the upstream `TDESKTOP_API_TEST` mode. These credentials are limited to testing. The GitHub Actions artifact for this mode contains `YoruGram.exe`, `LICENSE`, `LEGAL`, and `SHA256.txt`. Use an authorized test account for sign-in tests.
+
+For a build with your project's Telegram API credentials, add `YORU_API_ID` and `YORU_API_HASH` as repository Actions secrets and select **Build with the project's Telegram API credentials** when manually running the workflow. Credentialed builds upload artifacts only when the repository is private.
+
+For a local build, clone this fork and its recursive submodules into the build folder described in [the upstream Windows build instructions](docs/building-win.md). In the x64 Native Tools Command Prompt with MSVC 14.44 and Windows SDK 10.0.26100.0, run from the repository root:
+
+```bat
+call Telegram\build\prepare\win.bat skip-release
+cd Telegram
+call configure.bat x64 -D TDESKTOP_API_TEST=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+cmake --build ..\out --config Debug --target Telegram --parallel
+```
+
+The executable is expected at `out/Debug/YoruGram.exe`. Use `TDESKTOP_API_TEST=OFF` with your project's API ID and hash for a local credentialed build. Keep credentials out of source control. Production signing, an installer, and independent updates are pending.
