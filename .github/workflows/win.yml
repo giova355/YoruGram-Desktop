@@ -23,7 +23,7 @@ jobs:
     env:
       PREPARE_PATH: "Telegram/build/prepare/prepare.py"
       REPO_PATH: TBuild/YoruGram-Desktop
-      USE_PROJECT_API: ${{ inputs.use_project_api == true }}
+      USE_PROJECT_API: ${{ inputs.use_project_api == true || (github.event_name == 'push' && vars.YORU_CI_PROJECT_API == 'true') }}
 
     defaults:
       run:
@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Check API configuration
-        if: inputs.use_project_api == true
+        if: env.USE_PROJECT_API == 'true'
         shell: pwsh
         env:
           YORU_API_ID: ${{ secrets.YORU_API_ID }}
@@ -128,8 +128,8 @@ jobs:
 
       - name: Compile YoruGram Desktop
         env:
-          YORU_API_ID: ${{ secrets.YORU_API_ID }}
-          YORU_API_HASH: ${{ secrets.YORU_API_HASH }}
+          YORU_API_ID: ${{ env.USE_PROJECT_API == 'true' && secrets.YORU_API_ID || '' }}
+          YORU_API_HASH: ${{ env.USE_PROJECT_API == 'true' && secrets.YORU_API_HASH || '' }}
         working-directory: ${{ env.REPO_PATH }}/Telegram
         run: |
           @echo off
@@ -153,15 +153,15 @@ jobs:
           Copy-Item (Join-Path $root 'LICENSE'), (Join-Path $root 'LEGAL') artifact
           (Get-FileHash artifact\YoruGram.exe -Algorithm SHA256).Hash | Set-Content artifact\SHA256.txt
       - uses: actions/upload-artifact@v7
-        if: inputs.use_project_api != true || github.event.repository.private
+        if: env.USE_PROJECT_API != 'true' || github.event.repository.private
         with:
-          name: YoruGram-Windows-x64-${{ inputs.use_project_api && 'project-api-test' || 'telegram-test-api' }}
+          name: YoruGram-Windows-x64-${{ env.USE_PROJECT_API == 'true' && 'project-api-test' || 'telegram-test-api' }}
           path: artifact/
           if-no-files-found: error
           retention-days: 7
 
       - name: Launch YoruGram with a fresh Windows profile
-        if: inputs.use_project_api != true
+        if: env.USE_PROJECT_API != 'true'
         shell: pwsh
         run: |
           $exe = (Resolve-Path 'artifact\YoruGram.exe').Path

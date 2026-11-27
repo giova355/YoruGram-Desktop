@@ -5,7 +5,7 @@ Unofficial Telegram Desktop fork based on 7.4.6. Upstream license and copyright 
 ## Build
 The Windows workflow on `yoru/foundation` uses upstream dependency preparation and builds Debug with MSVC 14.44. Pushes and default manual runs select the upstream `TDESKTOP_API_TEST` mode. These credentials are limited to testing. The GitHub Actions artifact for this mode contains `YoruGram.exe`, `LICENSE`, `LEGAL`, and `SHA256.txt`. Use an authorized test account for sign-in tests.
 
-For a build with your project's Telegram API credentials, add `YORU_API_ID` and `YORU_API_HASH` as repository Actions secrets and select **Build with the project's Telegram API credentials** when manually running the workflow. Credentialed builds upload artifacts only when the repository is private.
+For a build with your project's Telegram API credentials, add `YORU_API_ID` and `YORU_API_HASH` as repository Actions secrets. Set the repository Actions variable `YORU_CI_PROJECT_API` to `true` to use them on the next push to `yoru/foundation`. Unset the variable to return to the upstream test API. If the workflow supports manual runs on the default branch, use **Build with the project's Telegram API credentials** for a single run. Credentialed builds upload artifacts only when the repository is private.
 
 For a local build, clone this fork and its recursive submodules into the build folder described in [the upstream Windows build instructions](docs/building-win.md). In the x64 Native Tools Command Prompt with MSVC 14.44 and Windows SDK 10.0.26100.0, run from the repository root:
 
