@@ -17,3 +17,5 @@ cmake --build ..\out --config Debug --target Telegram --parallel
 ```
 
 The executable is expected at `out/Debug/YoruGram.exe`. Use `TDESKTOP_API_TEST=OFF` with your project's API ID and hash for a local credentialed build. Keep credentials out of source control. Production signing, an installer, and independent updates are pending.
+
+Windows uses its own application ID, notification activator and shortcuts. The client leaves URL handler registration to an explicit request. CI runs the test executable with a fresh `APPDATA` and checks its window and data directory.

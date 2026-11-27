@@ -159,3 +159,29 @@ jobs:
           path: artifact/
           if-no-files-found: error
           retention-days: 7
+
+      - name: Launch YoruGram with a fresh Windows profile
+        if: inputs.use_project_api != true
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'artifact\YoruGram.exe').Path
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'yorugram-test-profile'
+          New-Item -ItemType Directory $env:APPDATA -Force | Out-Null
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            $deadline = (Get-Date).AddSeconds(45)
+            do {
+              Start-Sleep -Seconds 1
+              $process.Refresh()
+              if ($process.HasExited) { throw "YoruGram exited with code $($process.ExitCode)." }
+            } until ($process.MainWindowHandle -ne [IntPtr]::Zero -or (Get-Date) -ge $deadline)
+            if ($process.MainWindowHandle -eq [IntPtr]::Zero) { throw 'YoruGram showed no main window.' }
+            $data = Join-Path $env:APPDATA 'YoruGram Desktop\tdata'
+            if (-not (Test-Path -LiteralPath $data -PathType Container)) { throw 'YoruGram data directory is missing.' }
+            Write-Host "YoruGram opened a window and created its own data directory."
+          } finally {
+            if (-not $process.HasExited) {
+              [void]$process.CloseMainWindow()
+              if (-not $process.WaitForExit(5000)) { Stop-Process -Id $process.Id }
+            }
+          }

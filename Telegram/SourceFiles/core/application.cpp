@@ -496,10 +496,12 @@ void Application::run() {
 }
 
 void Application::autoRegisterUrlScheme() {
+#ifndef Q_OS_WIN
 	if (!OptionSkipUrlSchemeRegister.value()
 		&& Test::AllowAutomaticUrlRegistration()) {
 		InvokeQueued(this, [] { RegisterUrlScheme(); });
 	}
+#endif // Q_OS_WIN
 }
 
 void Application::showAccount(not_null<Main::Account*> account) {
@@ -2220,7 +2222,7 @@ void Application::RegisterUrlScheme() {
 		.arguments = arguments,
 		.protocol = u"tg"_q,
 		.protocolName = u"Telegram Link"_q,
-		.shortAppName = u"tdesktop"_q,
+		.shortAppName = u"yorugram"_q,
 		.longAppName = QCoreApplication::applicationName(),
 		.displayAppName = AppName.utf16(),
 		.displayAppDescription = AppName.utf16(),
@@ -2231,7 +2233,7 @@ void Application::RegisterUrlScheme() {
 		.arguments = arguments,
 		.protocol = u"tonsite"_q,
 		.protocolName = u"TonSite Link"_q,
-		.shortAppName = u"tdesktop"_q,
+		.shortAppName = u"yorugram"_q,
 		.longAppName = QCoreApplication::applicationName(),
 		.displayAppName = AppName.utf16(),
 		.displayAppDescription = AppName.utf16(),
@@ -2242,7 +2244,7 @@ void Application::RegisterUrlScheme() {
 		.arguments = arguments,
 		.protocol = u"ton"_q,
 		.protocolName = u"Ton Link"_q,
-		.shortAppName = u"tdesktop"_q,
+		.shortAppName = u"yorugram"_q,
 		.longAppName = QCoreApplication::applicationName(),
 		.displayAppName = AppName.utf16(),
 		.displayAppDescription = AppName.utf16(),
