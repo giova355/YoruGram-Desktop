@@ -2515,6 +2515,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_report_title" = "Report channel";
 "lng_report_group_title" = "Report Group";
 "lng_report_bot_title" = "Report bot";
+"lng_yoru_report_hacking_bot" = "Report a hacking bot";
+"lng_yoru_report_hacking_bot_confirm" = "Use this if the bot offers to hack accounts using phone numbers or email addresses. YoruGram will send a report to Telegram. If Telegram accepts the report, YoruGram will block the bot and delete this chat from your account.";
+"lng_yoru_report_remove_bot" = "Report and delete chat";
+"lng_yoru_report_hacking_bot_failed" = "Telegram did not accept the report. You can try again or block the bot separately.";
 "lng_report_message_title" = "Report message";
 "lng_report_profile_photo_title" = "Report profile photo";
 "lng_report_profile_video_title" = "Report profile photo";
