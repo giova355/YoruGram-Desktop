@@ -23,13 +23,29 @@ jobs:
     env:
       PREPARE_PATH: "Telegram/build/prepare/prepare.py"
       REPO_PATH: TBuild/YoruGram-Desktop
-      USE_PROJECT_API: ${{ inputs.use_project_api == true || (github.event_name == 'push' && vars.YORU_CI_PROJECT_API == 'true') }}
+      USE_PROJECT_API: >-
+        ${{ inputs.use_project_api == true
+          || (github.event_name == 'push'
+            && (vars.YORU_CI_PROJECT_API == 'true'
+              || contains(github.event.head_commit.message, 'YoruGram-Artifact-Recipient: age1'))) }}
 
     defaults:
       run:
         shell: cmd
 
     steps:
+      - name: Validate Windows artifact recipient
+        id: delivery
+        if: >-
+          github.event_name == 'push' && contains(github.event.head_commit.message, 'YoruGram-Artifact-Recipient: age1')
+        shell: pwsh
+        env:
+          YORU_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          $recipients = [regex]::Matches($env:YORU_COMMIT_MESSAGE, '(?m)^YoruGram-Artifact-Recipient: (age1[023456789acdefghjklmnpqrstuvwxyz]{58})\r?$')
+          if ($recipients.Count -ne 1) { throw 'Expected one age public recipient in the commit.' }
+          "recipient=$($recipients[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
+
       - name: Check API configuration
         if: env.USE_PROJECT_API == 'true'
         shell: pwsh
@@ -153,7 +169,7 @@ jobs:
           Copy-Item (Join-Path $root 'LICENSE'), (Join-Path $root 'LEGAL') artifact
           (Get-FileHash artifact\YoruGram.exe -Algorithm SHA256).Hash | Set-Content artifact\SHA256.txt
       - uses: actions/upload-artifact@v7
-        if: env.USE_PROJECT_API != 'true' || github.event.repository.private
+        if: steps.delivery.outputs.recipient == '' && (env.USE_PROJECT_API != 'true' || github.event.repository.private)
         with:
           name: YoruGram-Windows-x64-${{ env.USE_PROJECT_API == 'true' && 'project-api-test' || 'telegram-test-api' }}
           path: artifact/
@@ -161,7 +177,6 @@ jobs:
           retention-days: 7
 
       - name: Launch YoruGram with a fresh Windows profile
-        if: env.USE_PROJECT_API != 'true'
         shell: pwsh
         run: |
           $exe = (Resolve-Path 'artifact\YoruGram.exe').Path
@@ -185,6 +200,31 @@ jobs:
               if (-not $process.WaitForExit(5000)) { Stop-Process -Id $process.Id }
             }
           }
+
+      - uses: actions/setup-python@v6
+        if: steps.delivery.outputs.recipient != ''
+        with:
+          python-version: '3.12'
+
+      - name: Encrypt the Windows package for its recipient
+        if: steps.delivery.outputs.recipient != ''
+        shell: pwsh
+        env:
+          YORU_RECIPIENT: ${{ steps.delivery.outputs.recipient }}
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: pyrage==1.4.0
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to install the package encryption tool.' }
+          python "$env:REPO_PATH/yoru-build/windows/encrypt-artifact.py" artifact YoruGram-Windows-x64.zip.age
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to encrypt the Windows package.' }
+
+      - uses: actions/upload-artifact@v7
+        if: steps.delivery.outputs.recipient != ''
+        with:
+          name: YoruGram-Windows-x64-encrypted
+          path: YoruGram-Windows-x64.zip.age
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
 
       - name: Build and verify the Windows test installer
         if: env.USE_PROJECT_API != 'true'

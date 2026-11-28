@@ -18,6 +18,8 @@ cmake --build ..\out --config Debug --target Telegram --parallel
 
 The executable is expected at `out/Debug/YoruGram.exe`. Use `TDESKTOP_API_TEST=OFF` with your project's API ID and hash for a local credentialed build. Keep credentials out of source control. Production signing, an installer, and independent updates are pending.
 
+For a one-off project API build on `yoru/foundation`, generate an age identity and put only its public key in a commit message line formatted as `YoruGram-Artifact-Recipient: age1…`. A push with that marker validates the repository secrets, builds and launches the executable, then uploads the encrypted ZIP for that recipient. Keep the identity file private. The artifact is decrypted with `age -d -i identity.txt -o YoruGram-Windows-x64.zip YoruGram-Windows-x64.zip.age`.
+
 The welcome screen identifies YoruGram as an independent client using the Telegram API. Broadcast channel creation checks the proposed title and description for explicit calls to real violence and explicit offers to share recordings of real killings. Fictional horror, comics, anime and age labels can pass this local check. Telegram's rules apply to all channels, including those created outside YoruGram.
 
 The workflow builds an unsigned test installer after the Windows launch check and compares its installed executable to the tested file before uploading it. The installer uses its own per-user installation path and shortcuts.
