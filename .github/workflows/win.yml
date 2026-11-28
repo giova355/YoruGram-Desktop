@@ -185,3 +185,35 @@ jobs:
               if (-not $process.WaitForExit(5000)) { Stop-Process -Id $process.Id }
             }
           }
+
+      - name: Build and verify the Windows test installer
+        if: env.USE_PROJECT_API != 'true'
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          $repo = Join-Path $env:GITHUB_WORKSPACE $env:REPO_PATH
+          $script = Join-Path $repo 'yoru-build\windows\YoruGram-Test.iss'
+          $payload = (Resolve-Path artifact).Path
+          $output = Join-Path $env:GITHUB_WORKSPACE 'installer'
+          New-Item -ItemType Directory -Force $output | Out-Null
+          & $iscc "/DPayload=$payload" "/O$output" $script
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed.' }
+          $target = Join-Path $env:RUNNER_TEMP 'yoru-setup-test'
+          $setup = Join-Path $output 'YoruGram-Setup-Test.exe'
+          $install = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$target`"" -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Test installer exited with code $($install.ExitCode)." }
+          $installedExe = Join-Path $target 'YoruGram.exe'
+          if ((Get-FileHash $installedExe).Hash -ne (Get-FileHash (Join-Path $payload 'YoruGram.exe')).Hash) {
+            throw 'The installed executable differs from the tested executable.'
+          }
+          $uninstaller = Join-Path $target 'unins000.exe'
+          $uninstall = Start-Process $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path $installedExe)) { throw 'Test uninstall failed.' }
+          (Get-FileHash $setup -Algorithm SHA256).Hash | Set-Content (Join-Path $output 'SHA256.txt')
+      - uses: actions/upload-artifact@v7
+        if: env.USE_PROJECT_API != 'true'
+        with:
+          name: YoruGram-Windows-x64-test-installer
+          path: installer/
+          if-no-files-found: error
+          retention-days: 14

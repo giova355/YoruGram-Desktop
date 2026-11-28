@@ -467,16 +467,11 @@ void Step::paintCover(QPainter &p, int top) {
 	st::introCoverLeft.paint(p, left, coverHeight - st::introCoverLeft.height(), width());
 	st::introCoverRight.paint(p, width() - right - st::introCoverRight.width(), coverHeight - st::introCoverRight.height(), width());
 
-	auto planeLeft = (width() - st::introCoverIcon.width()) / 2 - st::introCoverIconLeft;
-	auto planeTop = top + st::introCoverIconTop;
-	if (top < 0 && !_hasCover) {
-		const auto ratio = float64(st::introPlaneWidth / st::introPlaneHeight);
-		auto deltaLeft = -int(base::SafeRound(ratio * top));
-//		auto deltaTop = top;
-		planeLeft += deltaLeft;
-	//	planeTop += top;
-	}
-	st::introCoverIcon.paint(p, planeLeft, planeTop, width());
+	static const auto logo = QPixmap(u":/gui/art/yoru_intro.png"_q);
+	const auto size = st::introCoverIcon.height();
+	const auto logoLeft = (width() - size) / 2;
+	const auto logoTop = top + st::introCoverIconTop;
+	p.drawPixmap(QRect(logoLeft, logoTop, size, size), logo);
 }
 
 int Step::contentLeft() const {

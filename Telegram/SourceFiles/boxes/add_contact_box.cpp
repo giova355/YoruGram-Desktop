@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_user.h"
 #include "history/history_item_reply_markup.h"
 #include "lang/lang_keys.h"
+#include "lang/lang_instance.h"
 #include "main/main_session.h"
 #include "menu/menu_ttl.h"
 #include "ui/boxes/confirm_box.h"
@@ -54,6 +55,26 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QClipboard>
 
 namespace {
+
+bool BlocksChannelCreation(const QString &text) {
+	static const auto Format = QRegularExpression(u"\\p{Cf}+"_q);
+	static const auto Separators = QRegularExpression(u"[^\\p{L}\\p{N}]+"_q);
+	static const auto Violence = QRegularExpression(
+		u"(?:^| )(?:"
+		u"(?:убивай|убивайте|убь[её]м|расстреливаем|расстреляем)"
+		u" (?:реальных людей|людей|прохожих|детей|мирных жителей|гражданских)"
+		u"|(?:призыв|призываем) к (?:убийству|убийствам|нападению на людей)"
+		u"|(?:публикуем|смотрим|выкладываем) (?:реальные убийства|реальные расстрелы) людей"
+		u"|(?:kill|murder|shoot) (?:all |the )?(?:real people|civilians|children|bystanders)"
+		u"|(?:let s|we will|join us to) (?:kill|attack|shoot) (?:all |the )?(?:people|civilians|children|bystanders)"
+		u"|(?:call|calling) for (?:murder|killing civilians|attacks on civilians)"
+		u"|(?:sharing|posting) (?:real murders|real executions) of people"
+		u")(?: |$)"_q);
+	auto normalized = text.normalized(QString::NormalizationForm_KC).toLower();
+	normalized.remove(Format);
+	normalized.replace(Separators, u" "_q);
+	return Violence.match(normalized.trimmed()).hasMatch();
+}
 
 bool IsValidPhone(QString phone) {
 	phone = phone.replace(QRegularExpression(u"[^\\d]"_q), QString());
@@ -849,6 +870,19 @@ void GroupInfoBox::createChannel(
 		const QString &title,
 		const QString &description) {
 	Expects(!_creationRequestId);
+
+	if (_type == Type::Channel
+		&& (BlocksChannelCreation(title) || BlocksChannelCreation(description))) {
+		const auto russian = Lang::GetInstance().id().startsWith(u"ru"_q);
+		uiShow()->showBox(Ui::MakeInformBox(russian
+			? (u"YoruGram запрещает создавать каналы с явными призывами нападать "
+				u"на людей или убивать, а также с явным предложением распространять "
+				u"записи реальных убийств. Измените название или описание."_q)
+			: (u"YoruGram blocks explicit calls to attack or kill people and "
+				u"explicit offers to share recordings of real killings. "
+				u"Edit the channel title or description."_q)));
+		return;
+	}
 
 	using Flag = MTPchannels_CreateChannel::Flag;
 	const auto flags = Flag()
