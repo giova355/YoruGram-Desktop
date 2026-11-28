@@ -2993,7 +2993,7 @@ else()
         set(bundle_identifier "com.tdesktop.Telegram")
     endif()
     set(bundle_entitlements "Telegram.entitlements")
-    set(output_name "Telegram")
+    set(output_name "YoruGram")
 endif()
 
 if (CMAKE_GENERATOR STREQUAL Xcode)

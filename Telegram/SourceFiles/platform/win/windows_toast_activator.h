@@ -12,8 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "base/platform/win/wrl/wrl_implements_h.h"
 
-// {F11932D3-6110-4BBC-9B02-B2EC07A1BD19}
-class DECLSPEC_UUID("F11932D3-6110-4BBC-9B02-B2EC07A1BD19") ToastActivator
+class DECLSPEC_UUID("4A3FF63D-EDCB-44C4-9F3E-D8681B218D76") ToastActivator
 	: public ::Microsoft::WRL::RuntimeClass<
 		::Microsoft::WRL::RuntimeClassFlags<::Microsoft::WRL::ClassicCom>,
 		INotificationActivationCallback,

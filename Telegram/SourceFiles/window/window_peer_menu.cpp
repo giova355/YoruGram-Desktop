@@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "menu/menu_mute.h"
 #include "menu/menu_ttl_validator.h"
 #include "mtproto/mtproto_config.h"
+#include "mtproto/type_utils.h"
 #include "settings/sections/settings_advanced.h"
 #include "settings/sections/settings_premium.h"
 #include "settings/settings_common.h"
@@ -331,6 +332,7 @@ private:
 	void addThemeEdit();
 	void addToggleNoForwards();
 	void addBlockUser();
+	void addReportAccountTheftBot();
 	void addBanFromChannel();
 	void addViewDiscussion();
 	void addDirectMessages();
@@ -1003,6 +1005,53 @@ void Filler::addBlockUser() {
 	if (user->blockStatus() == UserData::BlockStatus::Unknown) {
 		user->session().api().requestFullPeer(user);
 	}
+}
+
+void Filler::addReportAccountTheftBot() {
+	const auto user = _peer->asUser();
+	if (_topic
+		|| !user
+		|| !user->isBot()
+		|| user->isInaccessible()
+		|| user->isSelf()
+		|| user->isRepliesChat()
+		|| user->isVerifyCodes()) {
+		return;
+	}
+
+	const auto show = _controller->uiShow();
+	_addAction(tr::lng_yoru_report_hacking_bot(tr::now), [=] {
+		if (show->showFrozenError()) {
+			return;
+		}
+		show->show(Ui::MakeConfirmBox({
+			.text = tr::lng_yoru_report_hacking_bot_confirm(tr::now),
+			.confirmed = [=](Fn<void()> close) {
+				close();
+				const auto fail = [=] {
+					show->showToast(tr::lng_yoru_report_hacking_bot_failed(tr::now));
+				};
+				auto &api = user->session().api();
+				api.request(MTPaccount_ReportPeer(
+					user->input(),
+					MTP_inputReportReasonOther(),
+					MTP_string(u"This bot offers unauthorized access to accounts "
+						"using phone numbers or email addresses."_q)
+				)).done([=](const MTPBool &result) {
+					if (!mtpIsTrue(result)) {
+						fail();
+						return;
+					}
+					auto &api = user->session().api();
+					api.blockedPeers().block(user);
+					api.deleteConversation(user, false);
+					show->showToast(tr::lng_report_thanks(tr::now));
+				}).fail(fail).send();
+			},
+			.confirmText = tr::lng_yoru_report_remove_bot(),
+			.title = tr::lng_yoru_report_hacking_bot(),
+		}));
+	}, &st::menuIconReport);
 }
 
 void Filler::addBanFromChannel() {
@@ -2014,6 +2063,7 @@ void Filler::fillProfileActions() {
 	addToggleNoForwards();
 	addToggleFolder();
 	addBlockUser();
+	addReportAccountTheftBot();
 	addBanFromChannel();
 	addReport();
 	addLeaveChat();

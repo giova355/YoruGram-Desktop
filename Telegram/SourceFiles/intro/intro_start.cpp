@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "intro/intro_phone.h"
 #include "intro/intro_qr.h"
 #include "lang/lang_keys.h"
+#include "lang/lang_instance.h"
 #include "main/main_account.h"
 #include "main/main_app_config.h"
 #include "ui/widgets/buttons.h"
@@ -24,8 +25,10 @@ StartWidget::StartWidget(
 	not_null<Data*> data)
 : Step(parent, account, data, true) {
 	setMouseTracking(true);
-	setTitleText(rpl::single(u"Telegram Desktop"_q));
-	setDescriptionText(tr::lng_intro_about());
+	setTitleText(rpl::single(u"YoruGram Desktop"_q));
+	setDescriptionText(rpl::single(Lang::GetInstance().id().startsWith(u"ru"_q)
+		? u"Независимый клиент, использующий Telegram API."_q
+		: u"Independent client using the Telegram API."_q));
 	show();
 }
 
